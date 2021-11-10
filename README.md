@@ -1,4 +1,4 @@
-# Snakemake workflow: `ants_build_template_camcan`
+# Snakemake workflow: `greedy_template_neonatal`
 
 Workflow to build cohort templates based on multiple participants_tsv files
 
