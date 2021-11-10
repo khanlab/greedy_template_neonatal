@@ -23,15 +23,8 @@ channels = list(config['in_images'].keys())
 #need this to make sure iterations don't go below 0!
 wildcard_constraints:
     iteration="[0-9]+",
-    cohort="[a-zA-Z0-9]+"
-
-
-
-rule all_composite_warps:
-    input: expand('results/composite/sub-{subject}_to-{template}_via-cohort_{warptype}.nii.gz',\
-                    template=config['std_template_name'],\
-                    warptype=['CompositeWarp','CompositeInverseWarp'],\
-                    subject=all_subjects)
+    cohort="[a-zA-Z0-9]+",
+    channel="[a-zA-Z0-9]+"
 
 
 if config['run_iter'] != None:
@@ -43,6 +36,14 @@ else:
         input:
             json = 'results/tpl-{name}/template_description.json'.format(name=config['template_name'])
 
+
+
+#optional
+rule all_composite_warps:
+    input: expand('results/composite/sub-{subject}_to-{template}_via-cohort_{warptype}.nii.gz',\
+                    template=config['std_template_name'],\
+                    warptype=['CompositeWarp','CompositeInverseWarp'],\
+                    subject=all_subjects)
 
 
 include: 'rules/common.smk'

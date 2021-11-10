@@ -1,16 +1,12 @@
-#these can come from fmriprep:
-in_preproc_T1w: '/scratch/sudesnac/CamCAN/fmriprep_20.2.0/sub-{subject}/anat/sub-{subject}_desc-preproc_T1w.nii.gz'
-in_brainmask_T1w: '/scratch/sudesnac/CamCAN/fmriprep_20.2.0/sub-{subject}/anat/sub-{subject}_desc-brain_mask.nii.gz'
 
-#this can come from raw bids:
-in_raw_T2w: '/project/6050199/akhanf/ext-bids/cam-can/bids/combined/sub-{subject}/anat/sub-{subject}_T2w.nii.gz'
+in_raw:
+  T1w: /project/6050199/akhanf/ext-bids/developing_human_connectome/bids/sub-{subject}/anat/sub-{subject}_rec-SVR_T1w.nii.gz
+  T2w: /project/6050199/akhanf/ext-bids/developing_human_connectome/bids/sub-{subject}/anat/sub-{subject}_rec-SVR_T2w.nii.gz
 
-#for template building - mix of fmriprep and internally processed-data
+#pre-processed / co-registered images for template building 
 in_images:
-  T1w: 'results/preproc/sub-{subject}/sub-{subject}_desc-brain_T1w.nii.gz'
-  T2w: 'results/preproc/sub-{subject}/sub-{subject}_space-T1w_desc-brain_T2w.nii.gz'
-  GM:  '/scratch/sudesnac/CamCAN/fmriprep_20.2.0/sub-{subject}/anat/sub-{subject}_label-GM_probseg.nii.gz'
-  WM:  '/scratch/sudesnac/CamCAN/fmriprep_20.2.0/sub-{subject}/anat/sub-{subject}_label-WM_probseg.nii.gz'
+  T1w: 'results/preproc/sub-{subject}/sub-{subject}_desc-n4_T1w.nii.gz'
+  T2w: 'results/preproc/sub-{subject}/sub-{subject}_space-T1w_desc-n4_T2w.nii.gz'
 
 
 #for naming the final files in templateflow output
@@ -23,22 +19,15 @@ bids_suffix:
 
 
 cohorts:
-  - young
-  - middle1
-  - middle2
-  - old1
-  - old2
+  - neonatal92T1T2
 
 participants_tsv:
-  young: 'config/participants_young.tsv'
-  middle1: 'config/participants_middle1.tsv'
-  middle2: 'config/participants_middle2.tsv'
-  old1: 'config/participants_old1.tsv'
-  old2: 'config/participants_old2.tsv'
+  neonatal92T1T2: 'config/participants_neonatal_t1t2.tsv'
+  
 
 
 #for templateflow-style output
-template_name: 'CamCAN'  #tpl-{template_name} 
+template_name: 'dHCP'  #tpl-{template_name} 
 
 
 
@@ -60,29 +49,40 @@ template_description_extras:
 
 #assumes that templateflow templates are linked in resources folder
 init_template:
-  T1w: 'resources/templateflow/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_res-04_desc-brain_T1w.nii.gz'
-  T2w: 'resources/templateflow/tpl-MNI152NLin6Asym/tpl-MNI152NLin6Asym_res-04_desc-brain_T2w.nii.gz'
-  GM: 'resources/templateflow/tpl-MNI152NLin6Asym/FSL_FAST/tpl-MNI152NLin6Asym_res-04_desc-brain_T1w_prob_1.nii.gz'
-  WM: 'resources/templateflow/tpl-MNI152NLin6Asym/FSL_FAST/tpl-MNI152NLin6Asym_res-04_desc-brain_T1w_prob_2.nii.gz'
+  T1w: 'results/preproc/sub-CC00051XX02/sub-CC00051XX02_desc-n4_T1w.nii.gz'
+  T2w: 'results/preproc/sub-CC00051XX02/sub-CC00051XX02_space-T1w_desc-n4_T2w.nii.gz'
+
+
+std_template:
+  T1w: /project/6050199/ext-data/neonatal_brain_atlases/Serag_2012_204subj_T1_T2_probmaps/split_ga/template_ga-44_T1.nii.gz
+  T2w: /project/6050199/ext-data/neonatal_brain_atlases/Serag_2012_204subj_T1_T2_probmaps/split_ga/template_ga-44_T2.nii.gz
+ 
 
 #will register cohort templates to the std template after they are generated
-std_template_name: 'MNI152NLin6Asym'
+std_template_name: 'SeragNeonatal'
 
 #keep this empty, is set by command-line ( --config run_iter=1 or --config run_cohort=young)
 run_cohort: 
 run_iter: 
 
 #this is the iter which is exported into templateflow format
-max_iters: 8
+max_iters: 5
 
 
 resample_init_template: False #set this True to resample init template to below dims 
 # WARNING - changing this can significantly alter memory usage and run-time -- 
+
 resample_vox_dims: 
  - 1
  - 1
  - 1
 
+resample_std_template: True
+
+resample_std_vox_dims:
+ - 0.5
+ - 0.5
+ - 0.5
 
 
 #should be at least 2.3.4 (includes --random-seed option, and fixes some argparsing bugs)

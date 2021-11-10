@@ -27,7 +27,7 @@ rule set_init_template:
         cmd = lambda wildcards, input, output:
                 'ResampleImageBySpacing {dim} {input} {output} {vox_dims}'.format(
                         dim = config['ants']['dim'], input = input, output = output,
-                        vox_dims=' '.join([str(d) for d in config['resample_vox_dims']]))
+                        vox_dims=' '.join([str(d) for d in config['resample_init_vox_dims']]))
                      if config['resample_init_template'] else f"cp -v {input} {output}"
     output: 'results/cohort-{cohort}/iter_0/template_{channel}.nii.gz'
     log: 'logs/set_init_template_{channel}_{cohort}.log'
@@ -37,7 +37,7 @@ rule set_init_template:
 
 rule reg_to_template:
     input: 
-        template = lambda wildcards: ['results/cohort-{cohort}/iter_{iteration}/template_{channel}.nii.gz'.format(
+        template = lambda wildcards: ['results/cohort-{cohort}/iter_{iteration}/template_{channel}_rigid_std.nii.gz'.format(
                                 iteration=iteration,channel=channel,cohort=wildcards.cohort) for iteration,channel in itertools.product([int(wildcards.iteration)-1],channels)],
         target = lambda wildcards: [config['in_images'][channel] for channel in channels]
     params:
@@ -50,13 +50,13 @@ rule reg_to_template:
         affine_xfm_ras = 'results/cohort-{cohort}/iter_{iteration}/sub-{subject}_affine_ras.txt',
         warped = expand('results/cohort-{cohort}/iter_{iteration}/sub-{subject}_WarpedToTemplate_{channel}.nii.gz',channel=channels,allow_missing=True)
     log: 'logs/reg_to_template/cohort-{cohort}/iter_{iteration}_sub-{subject}.log'
-    threads: 4
+    threads: 8
     group: 'reg'
     container: config['singularity']['itksnap']
     resources:
         # this is assuming 1mm
         mem_mb = 16000,
-        time = 30
+        time = 60
     shell: 
         #affine first
         'greedy -d 3 -threads {threads} -a -m NCC 2x2x2 {params.input_fixed_moving} -o {output.affine_xfm_ras} -ia-image-centers -n 100x50x10 &> {log} && '
@@ -149,5 +149,56 @@ rule apply_template_update:
     shell:
         'antsApplyTransforms {params.dim} --float 1 --verbose 1 -i {input.template} -o {output.template} -t [{input.affine},1] '
         ' -t {input.invwarp} -t {input.invwarp} -t {input.invwarp} -t {input.invwarp} -r {input.template} &> {log}' #apply warp 4 times
+
+def get_std_template_cmd(wildcards, input, output):
+    if config['resample_std_template']:
+        cmd = 'ResampleImageBySpacing {dim} {input} {output} {vox_dims}'.format(
+                        dim = config['ants']['dim'], input = input, output = output,
+                        vox_dims=' '.join([str(d) for d in config['resample_std_vox_dims']]))
+    else:
+        cmd = 'cp {input} {output}'.format(
+                input=input,
+                output=output)
+    return cmd
+
+rule get_std_template_chan:
+    input: 
+        std_template = lambda wildcards: config['std_template'][wildcards.channel]
+    params:
+        cmd = get_std_template_cmd
+    output:
+        std_template = 'results/preproc/std_template_{channel}.nii.gz' 
+    group: 'preproc'
+    container: config['singularity']['ants']
+ 
+    shell:
+        '{params.cmd}'
+
+rule rigid_reg_to_std:
+    """ rigidly register current template iteration to our standard template, to correct pose """
+    input: 
+        curr_template =  expand('results/cohort-{cohort}/iter_{iteration}/template_{channel}.nii.gz',channel=channels,allow_missing=True),
+        std_template = expand('results/preproc/std_template_{channel}.nii.gz',channel=channels)
+    params:
+        input_fixed_moving = lambda wildcards, input: [f'-i {fixed} {moving}' for fixed,moving in zip(input.std_template, input.curr_template) ],
+        input_moving_warped = lambda wildcards, input, output: [f'-rm {moving} {warped}' for moving,warped in zip(input.curr_template,output.warped) ],
+    output:
+        affine_xfm_ras = 'results/cohort-{cohort}/iter_{iteration}/shape_update/template_to_std_rigid_ras.txt',
+        warped = expand('results/cohort-{cohort}/iter_{iteration}/template_{channel}_rigid_std.nii.gz',channel=channels,allow_missing=True)
+        
+    log: 'logs/rigid_reg_to_std/cohort-{cohort}/template_iter-{iteration}_to-std.log'
+    threads: 8
+    container: config['singularity']['itksnap']
+    resources:
+        # this is assuming 1mm
+        mem_mb = 16000,
+        time = 60
+    group: 'shape_update'
+    shell: 
+        #rigid reg
+        'greedy -d 3 -threads {threads} -a -dof 6 -m NCC 2x2x2 {params.input_fixed_moving} -o {output.affine_xfm_ras} -ia-image-centers -n 100x50x10 &> {log} && '
+        #and finally warp the moving image
+        'greedy -d 3 -threads {threads} -rf {input.std_template[0]} {params.input_moving_warped} -r {output.affine_xfm_ras} &>> {log}'
+
 
 

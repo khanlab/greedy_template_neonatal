@@ -5,7 +5,7 @@
 
 rule reg_cohort_template_to_std:
     input:
-        std_template = [ config['init_template'][channel]  for channel in channels ],
+        std_template = [ config['std_template'][channel]  for channel in channels ],
         cohort_template =  expand('results/cohort-{{cohort}}/iter_{iteration}/template_{channel}.nii.gz',iteration=config['max_iters'],channel=channels)
     params:
         input_fixed_moving = lambda wildcards, input: [f'-i {fixed} {moving}' for fixed,moving in zip(input.std_template, input.cohort_template) ],
@@ -61,7 +61,8 @@ rule create_composite_subj_to_std:
     output:
         subj2std_warp = 'results/composite/sub-{subject}_to-{std_template}_via-cohort_CompositeWarp.nii.gz'
     group: 'composite'
-    shell: 'greedy -d 3 -rf {input.ref_std} '
+    threads: 8
+    shell: 'greedy -d 3 -threads {threads} -rf {input.ref_std} '
           ' -r {input.cohort2std_warp} {input.cohort2std_affine_xfm_ras} '
           '  {input.subj2cohort_warp} {input.subj2cohort_affine_xfm_ras} '
           ' -rc {output.subj2std_warp}'
@@ -96,7 +97,8 @@ rule create_composite_subj_to_std_inverse:
     output:
         subj2std_invwarp = 'results/composite/sub-{subject}_to-{std_template}_via-cohort_CompositeInverseWarp.nii.gz'
     group: 'composite'
-    shell: 'greedy -d 3 -rf {input.ref_subj} -r '
+    threads: 8
+    shell: 'greedy -d 3  -threads {threads} -rf {input.ref_subj} -r '
           ' {input.subj2cohort_affine_xfm_ras},-1 '
           ' {input.subj2cohort_invwarp}'
           ' {input.cohort2std_affine_xfm_ras},-1 '
